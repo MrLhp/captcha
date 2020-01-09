@@ -2,6 +2,8 @@ package com.tesseract.captcha.controller;
 
 import com.google.code.kaptcha.Constants;
 import com.google.code.kaptcha.Producer;
+import com.tesseract.captcha.image.ImageProcess;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +20,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
+@Slf4j
 @RestController
 public class KaptchaController {
     private Producer captchaProducer = null;
@@ -25,6 +28,14 @@ public class KaptchaController {
     @Autowired
     public void setCaptchaProducer(final Producer captchaProducer) {
         this.captchaProducer = captchaProducer;
+    }
+
+    @RequestMapping(value = "/start")
+    public void processCapt() {
+        this.log.info("开始了");
+        ImageProcess imageProcess = new ImageProcess();
+        imageProcess.imageProcess(captchaProducer);
+        this.log.info("结束了");
     }
 
     @RequestMapping(value = "/valid")

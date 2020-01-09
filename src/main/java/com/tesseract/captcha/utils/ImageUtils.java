@@ -104,6 +104,109 @@ public class ImageUtils {
         return 0;
     }
 
+    public static BufferedImage ImageProcessing(BufferedImage sourceImage) throws IOException {
+
+
+        BufferedImage bufferedImage = sourceImage;
+        int h = bufferedImage.getHeight();
+        int w = bufferedImage.getWidth();
+
+        // 灰度化
+        int[][] gray = new int[w][h];
+        for (int x = 0; x < w; x++) {
+            for (int y = 0; y < h; y++) {
+                int argb = bufferedImage.getRGB(x, y);
+                // 图像加亮（调整亮度识别率非常高）
+                int r = (int) (((argb >> 16) & 0xFF) * 1.1 + 30);
+                int g = (int) (((argb >> 8) & 0xFF) * 1.1 + 30);
+                int b = (int) (((argb >> 0) & 0xFF) * 1.1 + 30);
+                if (r >= 255) {
+                    r = 255;
+                }
+                if (g >= 255) {
+                    g = 255;
+                }
+                if (b >= 255) {
+                    b = 255;
+                }
+
+                //此处根据实际需要进行设定阈值
+                gray[x][y] = (int) Math.pow((
+                        Math.pow(r, 2.2) * 0.2973
+                                + Math.pow(g, 2.2) * 0.6274
+                                + Math.pow(b, 2.2) * 0.0753), 1 / 2.2);
+            }
+        }
+
+        // 二值化
+        int threshold = ostu(gray, w, h);
+        BufferedImage binaryBufferedImage = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_BINARY);
+        for (int x = 0; x < w; x++) {
+            for (int y = 0; y < h; y++) {
+                if (gray[x][y] > threshold) {
+                    gray[x][y] |= 0x00FFFF;
+                } else {
+                    gray[x][y] &= 0xFF0000;
+                }
+                binaryBufferedImage.setRGB(x, y, gray[x][y]);
+            }
+        }
+
+        //去除干扰点 或 干扰线（运用八领域，即像素周围八个点判定，根据实际需要判定）
+        for (int y = 1; y < h - 1; y++) {
+            for (int x = 1; x < w - 1; x++) {
+
+                boolean lineFlag = false;//去除线判定
+                int pointflagNum = 0;//去除点判定
+
+                if (isBlack(binaryBufferedImage.getRGB(x, y))) {
+                    //左右像素点为"白"即空时，去掉此点
+                    if (isWhite(binaryBufferedImage.getRGB(x - 1, y)) && isWhite(binaryBufferedImage.getRGB(x + 1, y))) {
+                        lineFlag = true;
+                        pointflagNum += 2;
+                    }
+                    //上下像素点为"白"即空时，去掉此点
+                    if (isWhite(binaryBufferedImage.getRGB(x, y + 1)) && isWhite(binaryBufferedImage.getRGB(x, y - 1))) {
+                        lineFlag = true;
+                        pointflagNum += 2;
+                    }
+                    //斜上像素点为"白"即空时，去掉此点
+                    if (isWhite(binaryBufferedImage.getRGB(x - 1, y + 1)) && isWhite(binaryBufferedImage.getRGB(x + 1, y - 1))) {
+                        lineFlag = true;
+                        pointflagNum += 2;
+                    }
+                    if (isWhite(binaryBufferedImage.getRGB(x + 1, y + 1)) && isWhite(binaryBufferedImage.getRGB(x - 1, y - 1))) {
+                        lineFlag = true;
+                        pointflagNum += 2;
+                    }
+                    //去除干扰线
+                    if (lineFlag) {
+                        binaryBufferedImage.setRGB(x, y, -1);
+                    }
+                    //去除干扰点
+                    if (pointflagNum > 3) {
+                        binaryBufferedImage.setRGB(x, y, -1);
+                    }
+                }
+            }
+        }
+
+
+        // 矩阵打印
+        //for (int y = 0; y < h; y++) {
+        //    for (int x = 0; x < w; x++) {
+        //        if (isBlack(binaryBufferedImage.getRGB(x, y))) {
+        //            System.out.print("*");
+        //        } else {
+        //            System.out.print(" ");
+        //        }
+        //    }
+        //    System.out.println();
+        //}
+
+        return binaryBufferedImage;
+    }
+
 
     public static void ImageProcessing(String sourceFilePath, String targetFilePath) throws IOException {
 
@@ -383,6 +486,48 @@ public class ImageUtils {
         }
         return image;
     }
+
+    /**
+     * 验证码分割
+     *
+     * @param image 图片文件路径
+     * @return
+     * @throws Exception
+     */
+    public static List<BufferedImage> splitImage(BufferedImage image) throws Exception {
+        BufferedImage img = image;
+        final List<BufferedImage> subImgs = new ArrayList<BufferedImage>();
+        final int width = img.getWidth();
+        final int height = img.getHeight();
+        final List<Integer> weightlist = new ArrayList<Integer>();
+        for (int x = 0; x < width; ++x) {
+            int count = 0;
+            for (int y = 0; y < height; ++y) {
+                if (CommonUtil.isWhite(img.getRGB(x, y), whiteThreshold) == 0) {
+                    count++;
+                }
+            }
+            weightlist.add(count);
+        }
+        for (int i = 0; i < weightlist.size(); i++) {
+            int length = 0;
+            while (i < weightlist.size() && weightlist.get(i) > 1 || (i + 1 < weightlist.size() && weightlist.get(i + 1) > 0) || (i + 2 < weightlist.size() && weightlist.get(i + 2) > 0)) {
+                i++;
+                length++;
+            }
+            if (length > 30) {
+                subImgs.add(
+                        CommonUtil.removeBlank(img.getSubimage(i - length, 0, length / 2, height), whiteThreshold, 0));
+                subImgs.add(CommonUtil.removeBlank(img.getSubimage(i - length / 2, 0, length / 2, height),
+                        whiteThreshold, 0));
+            } else if (length > 5) {
+                subImgs.add(img.getSubimage(i - length, 0, length, height));
+            }
+        }
+
+        return subImgs;
+    }
+
 
     /**
      * 验证码分割
