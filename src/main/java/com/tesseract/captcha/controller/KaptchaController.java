@@ -6,6 +6,7 @@ import com.tesseract.captcha.image.ImageProcess;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,11 +31,11 @@ public class KaptchaController {
         this.captchaProducer = captchaProducer;
     }
 
-    @RequestMapping(value = "/start")
-    public void processCapt() {
+    @RequestMapping(value = "/start/{no}")
+    public void processCapt(@PathVariable int no) {
         this.log.info("开始了");
         ImageProcess imageProcess = new ImageProcess();
-        imageProcess.imageProcess(captchaProducer);
+        imageProcess.imageProcess(captchaProducer,no);
         this.log.info("结束了");
     }
 

@@ -5,25 +5,31 @@ import com.github.jaiimageio.impl.plugins.tiff.TIFFImageReaderSpi;
 import com.google.code.kaptcha.Producer;
 import com.tesseract.captcha.utils.ImageUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import org.junit.Test;
+import org.omg.PortableServer.LIFESPAN_POLICY_ID;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.stream.FileImageInputStream;
 import java.awt.image.BufferedImage;
-import java.io.*;
-import java.util.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.stream.Stream;
 
 @Slf4j
 public class ImageProcess {
     static String splitPath = "d:\\tmp\\yzm\\split\\";
 
-    public void imageProcess(Producer captchaProducer) {
+    public void imageProcess(Producer captchaProducer,int no) {
         try {
             int count = 0;
-            for (int i=1;i<=100;i++) {
+            for (int i=1;i<=5000;i++) {
                 final String capText = captchaProducer.createText();
                 BufferedImage bi = captchaProducer.createImage(capText);
                 bi = ImageUtils.removeBackground(bi);
@@ -42,38 +48,47 @@ public class ImageProcess {
                     this.log.info("抛弃验证码{}", capText);
                 }
             }
-            genMergeTif(0);
+            genMergeTif(no);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    @Test
+    public void test() {
+        try {
+            genMergeTif(0);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
     private static void genMergeTif(int no) throws IOException {
         String fileName = "d:/tmp/yzm/merge/captcha.normal.exp" + no;
-        LinkedList<File> fileList = Stream.of(new File("d:/tmp/yzm/split/").listFiles())
+        List<File> fileList = Stream.of(new File("d:/tmp/yzm/split/").listFiles())
                 .flatMap(file -> file.listFiles() == null ?
                         Stream.of(file) : Stream.of(file.listFiles())).filter(file -> file.getName().endsWith("tif"))
                 .collect(LinkedList::new,LinkedList::add,LinkedList::addAll);
-        List<File> files = sortFileByName(fileList, "asc");
+        fileList=sortFileByName(fileList, "asc");
+
 
         FileOutputStream fileOutputStream = new FileOutputStream(fileName + ".box");
         OutputStreamWriter outputStreamWriter = new OutputStreamWriter(fileOutputStream, "utf-8");
 
-        for (int i = 0;i<files.size();i++) {
+        for (int i = 0;i<fileList.size();i++) {
             File file = fileList.get(i);
             BufferedImage bufferedImage = ImageIO.read(file);
             String substring = file.getName().substring(0, file.getName().length() - 4);
             StringBuilder sb = new StringBuilder(substring.split("_")[1]);
             sb.append(" 0 0 ").append(bufferedImage.getWidth()).append(" ").append(bufferedImage.getHeight());
-            sb.append(" ").append(i+1).append("\n");
+            sb.append(" ").append(i).append("\n");
 
-            System.out.println(file.getName()+"\t"+sb.toString());
             outputStreamWriter.write(sb.toString());
             outputStreamWriter.flush();
         }
         outputStreamWriter.close();
-        ImageUtils.tif2Marge(files,
-                new File(fileName+".tif"),300,300);
+        ImageUtils.tif2Marge(fileList,new File(fileName+".tif"),300,300);
     }
 
     private static void genTesseractBox(int no) throws IOException {
@@ -97,7 +112,7 @@ public class ImageProcess {
         Arrays.sort(files1, new Comparator<File>() {
             public int compare(File o1, File o2) {
                 int n1 = extractNumber(o1.getName().split("_")[0]);
-                int n2 = extractNumber(o1.getName().split("_")[0]);
+                int n2 = extractNumber(o2.getName().split("_")[0]);
                 if(orderStr == null || orderStr.length() < 1 || orderStr.equalsIgnoreCase("asc")) {
                     return n1 - n2;
                 } else {
@@ -106,7 +121,8 @@ public class ImageProcess {
                 }
             }
         });
-        return new ArrayList<File>(Arrays.asList(files1));
+
+        return Arrays.asList(files1);
     }
 
     private static int extractNumber(String name) {
@@ -117,7 +133,6 @@ public class ImageProcess {
         } catch (Exception e) {
             i = 0;
         }
-        System.out.println("================="+i);
         return i;
     }
 }
