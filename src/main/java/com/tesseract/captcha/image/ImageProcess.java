@@ -6,20 +6,17 @@ import com.google.code.kaptcha.Producer;
 import com.tesseract.captcha.utils.ImageUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
-import org.omg.PortableServer.LIFESPAN_POLICY_ID;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.stream.FileImageInputStream;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
+import java.io.*;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -54,14 +51,6 @@ public class ImageProcess {
         }
     }
 
-    @Test
-    public void test() {
-        try {
-            genMergeTif(0);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
 
     private static void genMergeTif(int no) throws IOException {
@@ -69,14 +58,14 @@ public class ImageProcess {
         List<File> fileList = Stream.of(new File("d:/tmp/yzm/split/").listFiles())
                 .flatMap(file -> file.listFiles() == null ?
                         Stream.of(file) : Stream.of(file.listFiles())).filter(file -> file.getName().endsWith("tif"))
-                .collect(LinkedList::new,LinkedList::add,LinkedList::addAll);
-        fileList=sortFileByName(fileList, "asc");
+                .collect(LinkedList::new, LinkedList::add, LinkedList::addAll);
+        fileList = sortFileByName(fileList, "asc");
 
 
         FileOutputStream fileOutputStream = new FileOutputStream(fileName + ".box");
         OutputStreamWriter outputStreamWriter = new OutputStreamWriter(fileOutputStream, "utf-8");
 
-        for (int i = 0;i<fileList.size();i++) {
+        for (int i = 0; i < fileList.size(); i++) {
             File file = fileList.get(i);
             BufferedImage bufferedImage = ImageIO.read(file);
             String substring = file.getName().substring(0, file.getName().length() - 4);
@@ -88,19 +77,19 @@ public class ImageProcess {
             outputStreamWriter.flush();
         }
         outputStreamWriter.close();
-        ImageUtils.tif2Marge(fileList,new File(fileName+".tif"),300,300);
+        ImageUtils.tif2Marge(fileList, new File(fileName + ".tif"), 300, 300);
     }
 
     private static void genTesseractBox(int no) throws IOException {
         FileImageInputStream fis = null;
         TIFFImageReaderSpi tiffImageReaderSpi = new TIFFImageReaderSpi();
         TIFFImageReader tiffImageReader = new TIFFImageReader(tiffImageReaderSpi);
-        fis = new FileImageInputStream(new File("d:/tmp/yzm/merge/captcha.normal.exp"+no+".tif"));
+        fis = new FileImageInputStream(new File("d:/tmp/yzm/merge/captcha.normal.exp" + no + ".tif"));
         tiffImageReader.setInput(fis);
         int numPages = tiffImageReader.getNumImages(true);
         for (int i = 0; i < numPages; i++) {
             BufferedImage bi = tiffImageReader.read(i);
-            System.out.println(i+" 0 0 "+(bi.getWidth()-1)+" "+(bi.getHeight()-2)+" "+i);
+            System.out.println(i + " 0 0 " + (bi.getWidth() - 1) + " " + (bi.getHeight() - 2) + " " + i);
         }
     }
 
@@ -113,7 +102,7 @@ public class ImageProcess {
             public int compare(File o1, File o2) {
                 int n1 = extractNumber(o1.getName().split("_")[0]);
                 int n2 = extractNumber(o2.getName().split("_")[0]);
-                if(orderStr == null || orderStr.length() < 1 || orderStr.equalsIgnoreCase("asc")) {
+                if (orderStr == null || orderStr.length() < 1 || orderStr.equalsIgnoreCase("asc")) {
                     return n1 - n2;
                 } else {
                     //降序
@@ -135,4 +124,40 @@ public class ImageProcess {
         }
         return i;
     }
+
+
+    @Test
+    public void tesseractOcr() {
+        for (int k =4;k<11;k++) {
+            String tesseractPath = "C:/Program Files/Tesseract-OCR/tesseract.exe ";
+            List<File> fileList = Stream.of(new File("d:/tmp/yzm/split/").listFiles())
+                    .filter(file -> file.getName().endsWith("jpeg"))
+                    .collect(Collectors.toList());
+            Runtime runtime = Runtime.getRuntime();
+            String line = null;
+            System.out.println(k+"\t"+fileList.size());
+            int count=0;
+            for (int i = 0; i < fileList.size(); i++) {
+                File file = fileList.get(i);
+                String captCode = file.getName().substring(0, file.getName().length() - 5);
+                String[] s = captCode.split("_");
+
+                String command = tesseractPath + "--psm "+k+" " + file.getAbsolutePath() + " stdout -l captcha";
+
+                try {
+                    Process process = runtime.exec(command);
+                    BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                    while ((line = bufferedReader.readLine()) != null){
+                        if (line.equals(s[1])) {
+                            count++;
+                        }
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            System.out.println(k+"\t"+count);
+        }
+    }
+
 }

@@ -516,11 +516,12 @@ public class ImageUtils {
                 length++;
             }
             if (length > 30) {
-                subImgs.add(
-                        CommonUtil.removeBlank(img.getSubimage(i - length, 0, length / 2, height), whiteThreshold, 0));
-                subImgs.add(CommonUtil.removeBlank(img.getSubimage(i - length / 2, 0, length / 2, height),
-                        whiteThreshold, 0));
+                //System.out.println(i+"\t"+(i-length)+"\t"+length/2+"\t"+height+"\t"+weightlist.get(i));
+                subImgs.add(img.getSubimage(i - length, 0, length / 2, height));
+                //System.out.println(i+"\t"+(i-length/2)+"\t"+length/2+"\t"+height+"\t"+weightlist.get(i));
+                subImgs.add(img.getSubimage(i - length / 2, 0, length / 2, height));
             } else if (length > 5) {
+                //System.out.println(i+"\t"+(i-length)+"\t"+length+"\t"+height+"\t"+weightlist.get(i));
                 subImgs.add(img.getSubimage(i - length, 0, length, height));
             }
         }
